@@ -1,0 +1,22 @@
+body {
+	background: #F1F1EF;
+	font-family: Arial;
+}
+
+table, td{
+	border-style: none;
+	border-width: 2px;
+	margin: 0 0 0 40%;
+}
+
+a {
+	font-size: 20px;
+	padding: 0 0 0 43% ;
+}
+
+button{
+	border-style: none;
+	margin: 0 0 0 30px;
+	background: #CECECE;
+}
+
