@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Register</title>
+</head>
+<body>
+	<ul>
+		<% for(var i = 0; i < error.length; i++) { %>
+			<li> <%=error[i]%></li>
+		<% } %>	
+	</ul>
+
+	<%= on %>
+	
+	<form action="registerverify" method="post">
+		<input type="text" name="username" placeholder="username">
+		<input type="password" name="password" placeholder="Password">
+		<input type="password" name="passwordrepeat" placeholder="Repeat password">
+		<input type="email" name="email" placeholder="E-mail">
+		<button type="submit">REGISTER</button>
+	</form>
+
+	<a href="/">Back to login</a>
+
+</body>
+</html>

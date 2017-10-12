@@ -1,81 +1,156 @@
 
-// Express init
+// express init
 
 const express = require("express");
 const app = express();
 
-//activate CSS path!
-//
-//
-//
-app.use(express.static(__dirname + '/styles'));
-
-// body-parser init
+//body-parser init
 
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
 
 // ejs initialisieren
-
 app.engine(".ejs", require("ejs").__express);
-app.set("view engine", "ejs");
+app.set("view engine","ejs");
 
 // Server starten
-const port = 3001;
-app.listen(port, function() {
-	console.log("listening to port" + port);
+const port = 3000;
+app.listen(port, function () {
+	console.log("listening to port " + port);
 });
 
-
-//database setup
-require('fs').mkdir(__dirname + '/tingodb', (err)=>{}); 
-const DB_COLLECTION = "products";
-const Db = require('tingodb')().Db; 
-const db = new Db(__dirname + '/tingodb', {}); 
-const ObjectID = require('tingodb')().ObjectID; 
+// Database setup
+const DB_COLLECTION = 'users';
+const Db = require('tingodb')().Db;
+const db = new Db(__dirname + '/tingodb', {})
+const ObjectID = require('tingodb')().ObjectID
 
 // Startseite
-app.get("/", (request,response) => {
-	response.sendFile(__dirname + "/index.html");
+
+var message = "";
+app.get("/", (request, response) => {
+	response.render('index', {"message": message});
 });
 
-// Produkt hinzufügen
+const session = require("express-session");
+app.use(session({
+	secret: "example",
+	resave: false,
+	saveUninitialized: true,
+}));
 
-app.post("/add", (request, response) => {
-	const produkt = request.body["product"];
-	const preis = request.body.price;
-	const document = {'product': produkt, 'price': preis}; 
+// login logic and access to databank
 
-	db.collection(DB_COLLECTION).save(document, (err, result) => {   
-		if (err) return console.log(err);
+app.post("/login", (request,response) => {
+	const username = request.body["username"];
+	const password = request.body["password"];
+	var accExtists = false;
 
-		console.log("Data set");
+	// looking for the given username
+	db.collection(DB_COLLECTION).findOne({'username': username}, (error,result) => {
+
+		// If account is found in databank
+		if(result != null) {
+			accExtists = true;	
+			console.log(result.password);
+
+			// if given password matches with account username
+			if (result.password == password) {
+				request.session['authenticated'] = true;
+				request.session["username"] = username;
+				response.redirect("/content");
+
+			// wrong password given
+			} else {
+				console.log(error);
+				message = "You password is wrong.";
+				response.redirect("/");
+			}			
+		} 
+
+		// username is not in the databank
+		else {
+			message = "The user does not exist.";
+			response.redirect("/");
+		}
 	});
 
-	// Muss nicht mit
-	const array = db.collection(DB_COLLECTION).find().toArray(function(err, result) {       
-		response.render('datenbank', {'products': result});
 
-	 }); 
+
 
 });
 
-// Produkt auslesen
+app.get("/content", (request, response) => {
+	if(request.session['authenticated'] == true) {
+		const username = request.session['username'];
+		response.render("content", {"user": username });
+	} else {
+		message = "No permission! Please login.";
+		response.redirect("/")
+	}
 
-app.get("/datenbank", (request, response) => {
-	const array = db.collection(DB_COLLECTION).find().toArray(function(err, result) {       
-		response.render('datenbank', {'products': result});
+});
 
-	 }); 
+app.get("/logout", (request,response) => {
+	delete request.session.authenticated;
+	message = "Logout successful."
+	response.redirect("/");
+});
+
+app.get("/register", (request, response) => {
+	response.render('register', {"error": "","on": ""});
 });
 
 
-// Produkt löschen
 
-app.post('/deleteProduct/:id', (request, response) => {
-	const id = request.params.id;
-	const o_id = new ObjectID(id);
-	db.collection(DB_COLLECTION).remove({"_id": o_id}, (err,result) => {
-		response.redirect("/datenbank");
-	})
+
+// Revamp this for cleaner code and comments!
+
+app.post("/registerverify", (request, response) => {
+	const username = request.body["username"];
+	const password = request.body["password"];
+	const passwordrepeat = request.body["passwordrepeat"];
+	const email = request.body["email"];
+	const error = [];
+
+	if(username == "" || username == null) {
+		error.push("Type a username!");
+	}
+	if(password == "" || password == null){
+		error.push("Type a password!");
+	} else {
+		if(passwordrepeat == "" || passwordrepeat == null) {
+			error.push("Don't forget to repeat your password!")
+		}
+	}
+	
+	if(email == "" || email == null || !email.includes("@")) {
+		error.push("Type a correct Email adress!")
+	}
+
+	if(password != passwordrepeat) {
+		error.push("Passwords dont match!")
+	}
+
+	// USER DATEN IN DATENBANK SPEICHERN 
+
+
+	if(error.length == 0) {
+		const on = "Succesfully registered!";
+		const documents = {'username': username, 'password': password, 'email': email};
+
+		db.collection(DB_COLLECTION).save(documents, (err, result) =>  {
+			if(err) return console.log(err);
+			console.log("saved to database");
+		});
+
+		response.render('register', {"error": error, "on": on});
+	} else {
+		response.render('register', {"error": error, 'on': ""});
+	}
+
+	
 });
+
+
+
