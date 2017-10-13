@@ -25,6 +25,9 @@ const Db = require('tingodb')().Db;
 const db = new Db(__dirname + '/tingodb', {})
 const ObjectID = require('tingodb')().ObjectID
 
+// password encryption
+const passwordHash = require('password-hash'); 
+
 // Startseite
 
 var message = "";
@@ -55,7 +58,9 @@ app.post("/login", (request,response) => {
 			console.log(result.password);
 
 			// if given password matches with account username
-			if (result.password == password) {
+			// Uing passwordHash to decrypt the password and compare them
+			if (passwordHash.verify(password,result.password)) {
+
 				request.session['authenticated'] = true;
 				request.session["username"] = username;
 				response.redirect("/content");
@@ -97,14 +102,18 @@ app.get("/logout", (request,response) => {
 	response.redirect("/");
 });
 
+
+
+// REGISTER
+
+// Always have different ways to access to one side. Really important for user experience.
+
 app.get("/register", (request, response) => {
+	// "error" and "on" have to be initialized as empty objects, otherwise you get an error message.
 	response.render('register', {"error": "","on": ""});
 });
 
 
-
-
-// Revamp this for cleaner code and comments!
 
 app.post("/registerverify", (request, response) => {
 	const username = request.body["username"];
@@ -113,43 +122,85 @@ app.post("/registerverify", (request, response) => {
 	const email = request.body["email"];
 	const error = [];
 
-	if(username == "" || username == null) {
-		error.push("Type a username!");
-	}
-	if(password == "" || password == null){
-		error.push("Type a password!");
-	} else {
-		if(passwordrepeat == "" || passwordrepeat == null) {
-			error.push("Don't forget to repeat your password!")
+	var allowRegister = true;
+
+
+	// search for the username in database
+	db.collection(DB_COLLECTION).findOne({'username': username}, (error,result) => {
+		
+		if(result == null) {
+			// if not found allow register. username not taken.
+			console.log(result);
+			allowRegister = true;
+		} 
+	});
+
+	// enabled with boolean
+	if(allowRegister == true) {
+
+
+		// checks for mistakes in typed userdata
+		if(username == "" || username == null) {
+			error.push("Type a username!");
 		}
-	}
 	
-	if(email == "" || email == null || !email.includes("@")) {
-		error.push("Type a correct Email adress!")
-	}
+		if(password == "" || password == null){
+			error.push("Type a password!");
+	
+		} else {
+	
+			if(passwordrepeat == "" || passwordrepeat == null) {
+				error.push("Don't forget to repeat your password!")
+			}
+		}
+		
+		if(password != passwordrepeat) {
+			error.push("Passwords dont match!")
+		}
+	
+	
+		/*
+		// not needed due to updated html - html can check by itself if it's an email,
+		// with type="email"
+	
+		if(email == "" || email == null || !email.includes("@")) {
+			error.push("Type a correct Email adress!")
+		}
+	
+		// can definitely be more complex 
+		*/
+	
+	
+	
+		// save userdata in databank
+	
+		if(error.length == 0) {
+			// Password encryption
+			const encryptedPass = passwordHash.generate(password);
 
-	if(password != passwordrepeat) {
-		error.push("Passwords dont match!")
-	}
+			const on = "Succesfully registered!";
+			const documents = {'username': username, 'password': encryptedPass, 'email': email};
+	
+			db.collection(DB_COLLECTION).save(documents, (err, result) =>  {
+				if(err) return console.log(err);
+				console.log("saved to database");
+			});
+	
+			response.render('register', {"error": error, "on": on});
+		} else {
+			// response with error message
+			response.render('register', {"error": error, 'on': ""});
+		}
 
-	// USER DATEN IN DATENBANK SPEICHERN 
-
-
-	if(error.length == 0) {
-		const on = "Succesfully registered!";
-		const documents = {'username': username, 'password': password, 'email': email};
-
-		db.collection(DB_COLLECTION).save(documents, (err, result) =>  {
-			if(err) return console.log(err);
-			console.log("saved to database");
-		});
-
-		response.render('register', {"error": error, "on": on});
 	} else {
-		response.render('register', {"error": error, 'on': ""});
+
+		// error message for taken username due to boolean being FALSE
+		console.log(allowRegister);
+		error.push("Account already exists. Choose another username.");
+		response.render('register', {'error': error, 'on': ""});
 	}
 
-	
+
 });
 
 
